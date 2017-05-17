@@ -51,6 +51,7 @@ goog.Disposable = function() {
   // Support sealing
   this.disposed_ = this.disposed_;
   this.onDisposeCallbacks_ = this.onDisposeCallbacks_;
+  this.registeredDisposables_ = this.registeredDisposables_;
 };
 
 
@@ -144,6 +145,12 @@ goog.Disposable.prototype.disposed_ = false;
  */
 goog.Disposable.prototype.onDisposeCallbacks_;
 
+/**
+ * Other Disposables to dispose when this object is disposed.
+ * @type {Array<goog.disposable.IDisposable>}
+ * @private
+ */
+goog.Disposable.prototype.registeredDisposables_;
 
 /**
  * @return {boolean} Whether the object has been disposed of.
@@ -160,6 +167,13 @@ goog.Disposable.prototype.isDisposed = function() {
  */
 goog.Disposable.prototype.getDisposed = goog.Disposable.prototype.isDisposed;
 
+/**
+ * Added to disposed objects. This allows you to do a heap dump and search for
+ * all disposed objects (by finding their DisposedMarker instances) and track
+ * down the retaining paths, to clean up memory leaks.
+ * @constructor
+ */
+goog.DisposedMarker = function() {};
 
 /**
  * Disposes of the object. If the object hasn't already been disposed of, calls
@@ -196,9 +210,43 @@ goog.Disposable.prototype.dispose = function() {
       }
       delete goog.Disposable.instances_[uid];
     }
+
+    // In debug mode, disallow all access to disposed object members.
+    // Never allow this to happen in compiled mode, even for unit tests,
+    // because the compiler can sometimes reorder statements in a way that
+    // causes this to fail.
+    if (goog.DEBUG && !COMPILED) {
+      // The only thing a disposed object can do is return true from
+      // isDisposed().
+      let whitelist = {
+        isDisposed: 1,
+        disposed_: 1,
+      };
+
+      // Keep a reference to the old values, so we can determine what object is
+      // throwing these errors more easily.
+      let oldValues = {};
+      for (let key in this) {
+        if (whitelist[key]) {
+          continue;
+        }
+
+        oldValues[key] = this[key];
+        Object.defineProperty(this, key, {
+          get: function() {
+            throw new Error(
+                'Cannot access member ' + key + ' of disposed object');
+          },
+          set: function() {
+            throw new Error('Cannot set member ' + key + ' of disposed object');
+          }
+        });
+      }
+      this.__oldValues__ = oldValues;
+      this.__disposedMarker__ = new goog.DisposedMarker();
+    }
   }
 };
-
 
 /**
  * Associates a disposable object with this object so that they will be disposed
@@ -207,9 +255,30 @@ goog.Disposable.prototype.dispose = function() {
  *     this object is disposed.
  */
 goog.Disposable.prototype.registerDisposable = function(disposable) {
-  this.addOnDisposeCallback(goog.partial(goog.dispose, disposable));
+  if (this.disposed_) {
+    disposable.dispose();
+    return;
+  }
+  if (!this.registeredDisposables_) {
+    this.registeredDisposables_ = [];
+  }
+
+  this.registeredDisposables_.push(disposable);
 };
 
+/**
+ * Disassociates a disposable object with this object so that they won't be
+ * disposed together.
+ * @param {goog.disposable.IDisposable} disposable that won't be disposed when
+ *     this object is disposed.
+ */
+goog.Disposable.prototype.unregisterDisposable = function(disposable) {
+  if (this.disposed_ || !this.registeredDisposables_) {
+    return;
+  }
+
+  goog.array.remove(this.registeredDisposables_, disposable);
+};
 
 /**
  * Invokes a callback function when this object is disposed. Callbacks are
@@ -217,12 +286,14 @@ goog.Disposable.prototype.registerDisposable = function(disposable) {
  * an already disposed Disposable, it will be called immediately.
  * @param {function(this:T):?} callback The callback function.
  * @param {T=} opt_scope An optional scope to call the callback in.
+ * @return {function(this:T):?} A callback you can pass to
+ *     removeOnDisposeCallback to undo this addOnDisposeCallback.
  * @template T
  */
 goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
   if (this.disposed_) {
     opt_scope !== undefined ? callback.call(opt_scope) : callback();
-    return;
+    return callback;
   }
   if (!this.onDisposeCallbacks_) {
     this.onDisposeCallbacks_ = [];
@@ -230,8 +301,21 @@ goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
 
   this.onDisposeCallbacks_.push(
       opt_scope !== undefined ? goog.bind(callback, opt_scope) : callback);
+  return callback;
 };
 
+/**
+ * Remove a callback added with addOnDisposeCallback.
+ * @param {function(this:T):?} callback The callback function.
+ * @template T
+ */
+goog.Disposable.prototype.removeOnDisposeCallback = function(callback) {
+  if (this.disposed_ || !this.onDisposeCallbacks_) {
+    return;
+  }
+
+  goog.array.remove(this.onDisposeCallbacks_, callback);
+};
 
 /**
  * Deletes or nulls out any references to COM objects, DOM nodes, or other
@@ -263,6 +347,11 @@ goog.Disposable.prototype.disposeInternal = function() {
   if (this.onDisposeCallbacks_) {
     while (this.onDisposeCallbacks_.length) {
       this.onDisposeCallbacks_.shift()();
+    }
+  }
+  if (this.registeredDisposables_) {
+    while (this.registeredDisposables_.length) {
+      this.registeredDisposables_.shift().dispose();
     }
   }
 };
