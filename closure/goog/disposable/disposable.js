@@ -237,8 +237,10 @@ goog.Disposable.prototype.dispose = function() {
             throw new Error(
                 'Cannot access member ' + key + ' of disposed object');
           },
-          set: function() {
-            throw new Error('Cannot set member ' + key + ' of disposed object');
+          set: function(value) {
+            if (!goog.isFunction(value)) {
+                throw new Error('Cannot set member ' + key + ' of disposed object');
+            }
           }
         });
       }
