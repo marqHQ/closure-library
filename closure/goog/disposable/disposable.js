@@ -24,7 +24,23 @@ goog.provide('goog.disposeAll');
 
 goog.require('goog.disposable.IDisposable');
 
+/**
+ * @define {number} The monitoring mode of the goog.Disposable
+ *     instances. Default is OFF. Switching on the monitoring is only
+ *     recommended for debugging because it has a significant impact on
+ *     performance and memory usage. If switched off, the monitoring code
+ *     compiles down to 0 bytes.
+ */
+goog.Disposable.MONITORING_MODE =
+    goog.define('goog.Disposable.MONITORING_MODE', 0);
 
+
+/**
+ * @define {boolean} Whether to attach creation stack to each created disposable
+ *     instance; This is only relevant for when MonitoringMode != OFF.
+ */
+goog.Disposable.INCLUDE_STACK_ON_CREATION =
+    goog.define('goog.Disposable.INCLUDE_STACK_ON_CREATION', true);
 
 /**
  * Class that provides the basic implementation for disposable objects. If your
@@ -77,26 +93,6 @@ goog.Disposable.MonitoringMode = {
    */
   INTERACTIVE: 2
 };
-
-
-/**
- * @define {number} The monitoring mode of the goog.Disposable
- *     instances. Default is OFF. Switching on the monitoring is only
- *     recommended for debugging because it has a significant impact on
- *     performance and memory usage. If switched off, the monitoring code
- *     compiles down to 0 bytes.
- */
-goog.Disposable.MONITORING_MODE =
-    goog.define('goog.Disposable.MONITORING_MODE', 0);
-
-
-/**
- * @define {boolean} Whether to attach creation stack to each created disposable
- *     instance; This is only relevant for when MonitoringMode != OFF.
- */
-goog.Disposable.INCLUDE_STACK_ON_CREATION =
-    goog.define('goog.Disposable.INCLUDE_STACK_ON_CREATION', true);
-
 
 /**
  * Maps the unique ID of every undisposed `goog.Disposable` object to
