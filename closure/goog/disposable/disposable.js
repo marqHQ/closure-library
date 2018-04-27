@@ -64,9 +64,11 @@ goog.Disposable = function() {
     goog.Disposable.instances_[goog.getUid(this)] = this;
   }
   // Support sealing
-  this.disposed_ = this.disposed_;
-  this.onDisposeCallbacks_ = this.onDisposeCallbacks_;
-  this.registeredDisposables_ = this.registeredDisposables_;
+  // LUCID modification: We don't use Object.seal(), or the goog.base stuff that does it. We save about 4% of our total
+  // JS heap size on large documents by not setting these properties aggressively.
+  // this.disposed_ = this.disposed_;
+  // this.onDisposeCallbacks_ = this.onDisposeCallbacks_;
+  // this.registeredDisposables_ = this.registeredDisposables_;
 };
 
 
