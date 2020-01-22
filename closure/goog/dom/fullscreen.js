@@ -28,18 +28,22 @@ goog.require('goog.dom');
 goog.dom.fullscreen.EventType = {
   /** Dispatched by the Document when the fullscreen status changes. */
   CHANGE: (function() {
-    var el = goog.dom.getDomHelper().getDocument().documentElement;
-    if (el.requestFullscreen) {
-      return 'fullscreenchange';
-    }
-    if (el.webkitRequestFullscreen) {
-      return 'webkitfullscreenchange';
-    }
-    if (el.mozRequestFullScreen) {
-      return 'mozfullscreenchange';
-    }
-    if (el.msRequestFullscreen) {
-      return 'MSFullscreenChange';
+    if (typeof document !== 'undefined') {
+      var el = goog.dom.getDomHelper().getDocument().documentElement;
+      if (typeof el !== 'undefined') {
+        if (el.requestFullscreen) {
+          return 'fullscreenchange';
+        }
+        if (el.webkitRequestFullscreen) {
+          return 'webkitfullscreenchange';
+        }
+        if (el.mozRequestFullScreen) {
+          return 'mozfullscreenchange';
+        }
+        if (el.msRequestFullscreen) {
+          return 'MSFullscreenChange';
+        }
+      }
     }
     // Opera 12-14, and W3C standard (Draft):
     // https://dvcs.w3.org/hg/fullscreen/raw-file/tip/Overview.html
